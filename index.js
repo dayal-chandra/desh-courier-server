@@ -23,8 +23,8 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // // Connect the client to the server	(optional starting in v4.7)
+    // await client.connect();
 
     const usersCollection = client.db("deshDB").collection("users");
     const parcelsCollection = client.db("deshDB").collection("parcels");
@@ -92,6 +92,19 @@ async function run() {
       }
     });
 
+    app.get("/parcels/pending", async (req, res) => {
+      try {
+        const pendingParcels = await parcelsCollection
+          .find({ status: "pending" })
+          .toArray();
+        res.send(pendingParcels);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to fetch pending parcels", error });
+      }
+    });
+
     // Riders api
     app.post("/riders", async (req, res) => {
       try {
@@ -153,10 +166,10 @@ async function run() {
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
   }
