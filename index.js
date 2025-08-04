@@ -9,7 +9,7 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8xhugn7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -42,6 +42,30 @@ async function run() {
       const user = req.body;
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    app.get("/users", async (req, res) => {
+      try {
+        const users = await usersCollection.find().toArray();
+        res.send(users);
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
+    });
+
+    app.get("/users/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const user = await usersCollection.findOne({ email });
+
+        if (!user) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.send(user);
+      } catch (error) {
+        res.status(500).send({ success: false, message: error.message });
+      }
     });
 
     // parcel api
@@ -79,6 +103,52 @@ async function run() {
         res.send({ success: true, insertedId: result.insertedId });
       } catch (error) {
         res.status(500).send({ success: false, error: error.message });
+      }
+    });
+
+    app.get("/riders", async (req, res) => {
+      try {
+        const pendingRiders = await ridersCollection
+          .find({ status: "pending" })
+          .toArray();
+        res.send(pendingRiders);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch riders", error });
+      }
+    });
+
+    app.patch("/approve-rider/:id", async (req, res) => {
+      const riderId = req.params.id;
+
+      try {
+        // Update rider status to approved
+        const riderUpdateResult = await ridersCollection.updateOne(
+          { _id: new ObjectId(riderId) },
+          { $set: { status: "approved" } }
+        );
+
+        const updatedRider = await ridersCollection.findOne({
+          _id: new ObjectId(riderId),
+        });
+
+        if (!updatedRider?.email) {
+          return res.status(400).send({ message: "Rider email not found" });
+        }
+
+        // Update role in users collection
+        const userUpdateResult = await usersCollection.updateOne(
+          { email: updatedRider.email },
+          { $set: { role: "rider" } }
+        );
+
+        res.send({
+          message: "Rider approved and user role updated",
+          riderUpdateResult,
+          userUpdateResult,
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to approve rider", error });
       }
     });
 
